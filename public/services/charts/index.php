@@ -17,7 +17,10 @@ if ($_REQUEST['action'] == 'get_serie') {
   $output = $charts->getSerie($id, $from, $to);
 }
 else if ($_REQUEST['action'] == 'get_series') {
-  $ids = explode(",", $_REQUEST['ids']);
+  if(empty($_REQUEST['ids']))
+    $ids = array();
+  else
+    $ids = explode(",", $_REQUEST['ids']);
   $from = $_REQUEST['from'];
   $to = $_REQUEST['to'];
   $output = $charts->getSeries($ids, $from, $to);
