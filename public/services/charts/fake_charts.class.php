@@ -1,7 +1,7 @@
 <?php
 require_once '../../../config/config.php';
 
-class Charts {
+class FakeCharts {
   function getSerie($id, $from, $to) {
     return $this->__random($id, $from, $to);
   }
@@ -44,37 +44,16 @@ class Charts {
   }
 
   function searchMeasure($text) {
-    $db = GCApp::getDB();
-    $sql = "SELECT ma.id as id, ma.nome as nome from ".DB_SCHEMA.".misure_anagrafica ma
-      where ma.nome ILIKE :q OR ma.nome ILIKE :q2";
-    $stmt = $db->prepare($sql);
-    $stmt->execute(array('q' => $text.'%', 'q2' => '% '.$text.'%'));
-
-    $result = array();
-      while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $result []= array("name" => $row['nome'], "id" => $row['id']);
-      }
-
+    for($i=0; $i < 20; $i++) {
+      $result []= array("id" => 34443 + $i, "name" => "Temperatura condotta alta ".$i." ".$text);
+      $result []= array("id" => 1232 + $i, "name" => "Lilvello diga Brugneto ".$i." ".$text);
+    }
     return $result;
   }
 
   function getSeriesForFeature($featureId) {
-    $catalog = "genova_acqua";
-    $table = "rainvaso_v";
-    $id = 4;
-
-    $db = GCApp::getDB();
-    $sql = "SELECT ma.id as id, ma.nome as nome from ".DB_SCHEMA.".misure_feature mf
-      JOIN ".DB_SCHEMA.".misure_anagrafica ma on ma.id = mf.id_misura
-      where catalogo = :catalogo AND nome_tabella = :nome_tabella AND id_feature = :id_feature";
-    $stmt = $db->prepare($sql);
-    $stmt->execute(array('catalogo' => $catalog, 'nome_tabella' => $table, "id_feature" => $id));
-
-    $result = array();
-    while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-      $result []= array("name" => $row['nome'], "id" => $row['id']);
-    }
-
+    $result []= array("name" => "Misura condotta ". $featureId, "id" => 21);
+    $result []= array("name" => "Temperatura acqua ". $featureId, "id" => 22);
     return $result;
   }
 }

@@ -3,6 +3,7 @@ require_once '../../../config/config.php';
 require_once ROOT_PATH . 'lib/GCService.php';
 //require_once ROOT_PATH.'lib/ajax.class.php';
 require_once 'charts.class.php';
+require_once 'fake_charts.class.php';
 
 $gcService = GCService::instance();
 $gcService->startSession();
@@ -39,6 +40,9 @@ else if ($_REQUEST['action'] == 'workspace') {
 }
 else if ($_REQUEST['action'] == 'searchMeasure') {
   $output = $charts->searchMeasure($_REQUEST['text']);
+}
+else if ($_REQUEST['action'] == 'getSeriesForFeature') {
+  $output = $charts->getSeriesForFeature($_REQUEST['featureId']);
 }
 else {
   http_response_code(422);
