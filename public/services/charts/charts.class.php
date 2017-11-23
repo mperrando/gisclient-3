@@ -1,9 +1,25 @@
 <?php
 require_once '../../../config/config.php';
+require_once '../../../lib/repository.class.php';
+
+class WorkspaceRepository extends Repository {
+  function __construct($db, $table) {
+    parent::__construct($db, $table,
+      array('name', 'data', 'user_id', 'is_public')
+    );
+  }
+
+  function ofUser($user) {
+    return $this->where(
+      "user_id = :user_id OR is_public = TRUE",
+      array("user_id" => $user), array("order" => 'name'));
+  }
+}
 
 class Charts {
-  function getSerie($id, $from, $to) {
-    return $this->__random($id, $from, $to);
+  function __construct() {
+    $this->user = new GCUser();
+    $this->workspaces_repo = new WorkspaceRepository(GCApp::getDB(), DB_SCHEMA.".charts_workspaces");
   }
 
   function getSeries($ids, $from, $to) {
@@ -27,20 +43,47 @@ class Charts {
   }
 
   function workspacesList() {
-    $result[] = array("id" => 100303, "name" => "Workspace 1");
-    $result[] = array("id" => 220202, "name" => "Workspace 2");
+    $workspaces = $this->workspaces_repo->ofUser($this->user->getUsername());
+
+    $result = array();
+      foreach ( $workspaces as $workspace ) {
+        $result []= array("name" => $workspace['name'],
+          "id" => $workspace['id'],
+          "public" => $workspace['is_public']
+        );
+      }
     return $result;
   }
 
   function workspace($id) {
-    for($i = 1; $i < ($id % 10) + 2; $i++) {
-      $graphs[] = array("id" => $id * 100000 + $i,
-        "name" => "Chart " . ($id % 100 * 100 + $i),
-        "series" => array($id + 21 * $i, $id + 32 * $i)
-      );
-    }
+    $workspace = $this->workspaces_repo->find($id);
+    if ( !$workspace['is_public'] && !$workspace['user_id'] == $this->user->getUsername() )
+      throw new Exception("You are not authorized");
+    $workspace['data'] = json_decode($workspace['data']);
+    return $workspace;
+  }
 
-    return array("graphs" => $graphs);
+  function update_workspace($id, $params) {
+    if ( !$this->user->isAuthenticated() )
+      throw new Exception("You are not authorized");
+
+    $workspace = $this->workspaces_repo->find($id);
+
+    if ( $workspace['user_id'] != $this->user->getUsername() )
+      throw new Exception("You are not authorized");
+
+    $workspace = $this->workspaces_repo->updateAttributes($workspace, $params);
+    return $this->workspaces_repo->update($workspace);
+  }
+
+  function create_workspace($params) {
+    if ( !$this->user->isAuthenticated() )
+      throw new Exception("You are not authorized");
+
+    $workspace = $this->workspaces_repo->updateAttributes(array(), $params);
+    $workspace["user_id"] = $this->user->getUsername();
+
+    return $this->workspaces_repo->insert($workspace);
   }
 
   function searchMeasure($text) {

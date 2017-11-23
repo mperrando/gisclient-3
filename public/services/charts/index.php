@@ -11,13 +11,7 @@ $gcService->startSession();
 $charts = new Charts();
 
 //die(json_encode($_REQUEST));
-if ($_REQUEST['action'] == 'get_serie') {
-  $id = $_REQUEST['id'];
-  $from = $_REQUEST['from'];
-  $to = $_REQUEST['to'];
-  $output = $charts->getSerie($id, $from, $to);
-}
-else if ($_REQUEST['action'] == 'get_series') {
+if ($_REQUEST['action'] == 'get_series') {
   if(empty($_REQUEST['ids']))
     $ids = array();
   else
@@ -38,6 +32,18 @@ else if ($_REQUEST['action'] == 'workspace') {
   $id = $_REQUEST['id'];
   $output = $charts->workspace($id);
 }
+else if ($_REQUEST['action'] == 'save_workspace') {
+  if ( isset($_REQUEST['id']) )
+  {
+    $id = $_REQUEST['id'];
+    $data = $_REQUEST['data'];
+    $output = $charts->update_workspace($id, $data);
+  }
+  else {
+    $data = $_REQUEST['data'];
+    $output = $charts->create_workspace($data);
+  }
+}
 else if ($_REQUEST['action'] == 'searchMeasure') {
   $output = $charts->searchMeasure($_REQUEST['text']);
 }
@@ -49,4 +55,5 @@ else {
   $output["error"] = "Unrecognized action: " . $_REQUEST['action'];
 }
 
+header('Content-Type: application/json');
 die(json_encode($output));

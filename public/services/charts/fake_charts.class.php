@@ -2,10 +2,6 @@
 require_once '../../../config/config.php';
 
 class FakeCharts {
-  function getSerie($id, $from, $to) {
-    return $this->__random($id, $from, $to);
-  }
-
   function getSeries($ids, $from, $to) {
     foreach($ids as $id){
       $result[] = $this->__random($id, $from, $to);
