@@ -20,8 +20,8 @@ class Repository {
       if ( array_key_exists($field, $obj) )
         $f []= $field. " = :" .$field;
     }
-    $sql = "UPDATE ". $table." SET ". implode(', ', $f) ." where id = :id";
-    $stmt = $db->prepare($sql);
+    $sql = "UPDATE ". $this->table." SET ". implode(', ', $f) ." where id = :id";
+    $stmt = $this->db->prepare($sql);
     $stmt->execute($obj);
     return $this->find($obj['id']);
   }
