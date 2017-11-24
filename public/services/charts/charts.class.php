@@ -73,6 +73,7 @@ class Charts {
       throw new Exception("You are not authorized");
 
     $workspace = $this->workspaces_repo->updateAttributes($workspace, $params);
+    $workspace['data'] = json_encode($workspace['data']);
     return $this->workspaces_repo->update($workspace);
   }
 
@@ -82,6 +83,7 @@ class Charts {
 
     $workspace = $this->workspaces_repo->updateAttributes(array(), $params);
     $workspace["user_id"] = $this->user->getUsername();
+    $workspace['data'] = json_encode($workspace['data']);
 
     return $this->workspaces_repo->insert($workspace);
   }
