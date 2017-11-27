@@ -2,6 +2,11 @@
 require_once '../../../config/config.php';
 require_once '../../../lib/repository.class.php';
 
+function coalesce(&$value, $default = null)
+{
+    return isset($value) ? $value : $default;
+}
+
 class WorkspaceRepository extends Repository {
   function __construct($db, $table) {
     parent::__construct($db, $table,
@@ -23,15 +28,27 @@ class Charts {
   }
 
   function getSeries($ids, $from, $to) {
-    foreach($ids as $id){
-      $result[] = $this->__random($id, $from, $to);
+    foreach($ids as $id) {
+
+      $db = GCApp::getDB();
+      $sql = "SELECT ma.id as id, ma.nome as nome from ".DB_SCHEMA.".misure_anagrafica ma
+        where ma.id = :id";
+      $stmt = $db->prepare($sql);
+      $stmt->execute(array('id' => $id));
+      $s = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ( $s != null ) {
+        $result[] = $this->__random($id, $s["nome"], $from, $to);
+      }
+      else {
+        $result[] = $this->__random($id, "sgnaps ".($id % 10), $from, $to);
+      }
     }
     return $result;
   }
 
-  function __random($id, $from, $to) {
+  function __random($id, $name, $from, $to) {
     $serie["id"] = $id;
-    $serie["name"] = "sgnaps ".($id % 10);
+    $serie["name"] = $name;
     $serie["units"] = "meters";
     $serie["x"] = array();
     $serie["y"] = array();
@@ -73,7 +90,7 @@ class Charts {
       throw new Exception("You are not authorized");
 
     $workspace = $this->workspaces_repo->updateAttributes($workspace, $params);
-    $workspace['data'] = json_encode($workspace['data']);
+    $workspace['data'] = json_encode(coalesce($workspace['data']));
     return $this->workspaces_repo->update($workspace);
   }
 
@@ -83,7 +100,7 @@ class Charts {
 
     $workspace = $this->workspaces_repo->updateAttributes(array(), $params);
     $workspace["user_id"] = $this->user->getUsername();
-    $workspace['data'] = json_encode($workspace['data']);
+    $workspace["data"] = json_encode(coalesce($workspace['data']));
 
     return $this->workspaces_repo->insert($workspace);
   }

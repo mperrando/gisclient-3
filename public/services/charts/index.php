@@ -10,6 +10,11 @@ $gcService->startSession();
 
 $charts = new Charts();
 
+function defaultize(&$value, $default = null)
+{
+    return isset($value) ? $value : $default;
+}
+
 //die(json_encode($_REQUEST));
 if ($_REQUEST['action'] == 'get_series') {
   if(empty($_REQUEST['ids']))
@@ -36,11 +41,11 @@ else if ($_REQUEST['action'] == 'save_workspace') {
   if ( isset($_REQUEST['id']) )
   {
     $id = $_REQUEST['id'];
-    $data = $_REQUEST['data'];
+    $data = defaultize($_REQUEST['data'], array());
     $output = $charts->update_workspace($id, $data);
   }
   else {
-    $data = $_REQUEST['data'];
+    $data = defaultize($_REQUEST['data'], array());
     $output = $charts->create_workspace($data);
   }
 }
