@@ -21,34 +21,80 @@ class WorkspaceRepository extends Repository {
   }
 }
 
+function createCatalogDb($db, $catalog_id) {
+  $dbschema = DB_SCHEMA;
+  $sql = "SELECT catalog_path FROM $dbschema.catalog WHERE catalog_id=:c";
+  $stmt = $db->prepare($sql);
+  $stmt->execute(array("c" => $catalog_id));
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  if ( $row == null )
+    throw new Exception("Catalog not fount: $catalog_id");
+  $path = $row['catalog_path'];
+  $r = new GCDataDB($path);
+  return $r->db;
+}
+
+class SerieReader {
+  function __construct($db) {
+    $this->db = $db;
+  }
+
+  function read($id, $from, $to) {
+    $catalog_id = 18; //TODO
+    $timestamp_col = '"timestamp"';
+    $value_col = "temp_ext";
+    $table = "measures";
+
+    $from = date('c', $from/1000);
+    $to = date('c', $to/1000);
+
+    $datadb = createCatalogDb($this->db, $catalog_id);
+    $sql = "SELECT $timestamp_col as t, $value_col as v FROM $table where $timestamp_col >= :f::timestamp AND $timestamp_col <= :t::timestamp";
+    $stmt = $datadb->prepare($sql);
+    $stmt->execute(array("f" => $from, "t" => $to));
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+}
+
 class Charts {
   function __construct() {
     $this->user = new GCUser();
+    $this->db = GCApp::getDB();
     $this->workspaces_repo = new WorkspaceRepository(GCApp::getDB(), DB_SCHEMA.".charts_workspaces");
+    $this->reader = new SerieReader($this->db);
   }
 
   function getSeries($ids, $from, $to) {
+    $result = array();
     foreach($ids as $id) {
-
-      $db = GCApp::getDB();
-      $sql = "SELECT ma.id as id, ma.nome as nome from ".DB_SCHEMA.".misure_anagrafica ma
-        where ma.id = :id";
-      $stmt = $db->prepare($sql);
+      $sql = "SELECT * from ".DB_SCHEMA.".misure_anagrafica where id = :id";
+      $stmt = $this->db->prepare($sql);
       $stmt->execute(array('id' => $id));
       $s = $stmt->fetch(PDO::FETCH_ASSOC);
       if ( $s != null ) {
-        $result[] = $this->__random($id, $s["nome"], $from, $to);
+        $serie["id"] = $id;
+        $serie["name"] = $s["nome"];
+        $serie["units"] = $s["udm"];
+        $serie["x"] = array();
+        $serie["y"] = array();
+        $points = $this->reader->read($id, $from, $to);
+        foreach ( $points as $point ) {
+          $serie["x"][] = strtotime($point["t"])*1000;
+          $serie["y"][] = $point["v"];
+        }
+        $result[] = $serie;
       }
       else {
-        $result[] = $this->__random($id, "sgnaps ".($id % 10), $from, $to);
+        $result[] = $this->__random($id, $from, $to);
       }
     }
     return $result;
   }
 
-  function __random($id, $name, $from, $to) {
+  function __random($id, $from, $to) {
     $serie["id"] = $id;
-    $serie["name"] = $name;
+    $serie["name"] = "sgnaps ".($id % 10);
     $serie["units"] = "meters";
     $serie["x"] = array();
     $serie["y"] = array();
@@ -106,16 +152,15 @@ class Charts {
   }
 
   function searchMeasure($text) {
-    $db = GCApp::getDB();
     $sql = "SELECT ma.id as id, ma.nome as nome from ".DB_SCHEMA.".misure_anagrafica ma
       where ma.nome ILIKE :q OR ma.nome ILIKE :q2";
-    $stmt = $db->prepare($sql);
+    $stmt = $this->db->prepare($sql);
     $stmt->execute(array('q' => $text.'%', 'q2' => '% '.$text.'%'));
 
     $result = array();
-      while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $result []= array("name" => $row['nome'], "id" => $row['id']);
-      }
+    while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $result []= array("name" => $row['nome'], "id" => $row['id']);
+    }
 
     return $result;
   }
@@ -125,11 +170,10 @@ class Charts {
     $table = "rainvaso_v";
     $id = 4;
 
-    $db = GCApp::getDB();
     $sql = "SELECT ma.id as id, ma.nome as nome from ".DB_SCHEMA.".misure_feature mf
       JOIN ".DB_SCHEMA.".misure_anagrafica ma on ma.id = mf.id_misura
       where catalogo = :catalogo AND nome_tabella = :nome_tabella AND id_feature = :id_feature";
-    $stmt = $db->prepare($sql);
+    $stmt = $this->db->prepare($sql);
     $stmt->execute(array('catalogo' => $catalog, 'nome_tabella' => $table, "id_feature" => $id));
 
     $result = array();
