@@ -49,6 +49,13 @@ else if ($_REQUEST['action'] == 'save_workspace') {
     $output = $charts->create_workspace($data);
   }
 }
+else if ($_REQUEST['action'] == 'delete_workspace') {
+  if ( isset($_REQUEST['id']) )
+  {
+    $id = $_REQUEST['id'];
+    $output = $charts->delete_workspace($id);
+  }
+}
 else if ($_REQUEST['action'] == 'searchMeasure') {
   $output = $charts->searchMeasure($_REQUEST['text']);
 }

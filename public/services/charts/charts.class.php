@@ -10,13 +10,13 @@ function coalesce(&$value, $default = null)
 class WorkspaceRepository extends Repository {
   function __construct($db, $table) {
     parent::__construct($db, $table,
-      array('name', 'data', 'user_id', 'is_public')
+      array('name', 'data', 'user_id', 'is_public', 'deleted_at')
     );
   }
 
   function ofUser($user) {
     return $this->where(
-      "user_id = :user_id OR is_public = TRUE",
+      "(user_id = :user_id OR is_public = TRUE) AND deleted_at IS NULL",
       array("user_id" => $user), array("order" => 'name'));
   }
 }
@@ -149,6 +149,21 @@ class Charts {
     $workspace["data"] = json_encode(coalesce($workspace['data']));
 
     return $this->workspaces_repo->insert($workspace);
+  }
+
+  function delete_workspace($id) {
+    if ( !$this->user->isAuthenticated() )
+      throw new Exception("You are not authorized");
+
+    $workspace = $this->workspaces_repo->find($id);
+
+    if ( $workspace['user_id'] != $this->user->getUsername() )
+      throw new Exception("You are not authorized ".$this->user->getUsername(). " " .$workspace['user_id']);
+
+    $workspace = $this->workspaces_repo->updateAttributes($workspace, array('deleted_at' => date('c')));
+    $this->workspaces_repo->update($workspace);
+
+    //$this->workspaces_repo->delete($id);
   }
 
   function searchMeasure($text) {
