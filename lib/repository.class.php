@@ -44,6 +44,12 @@ class Repository {
     return $this->find($this->db->lastInsertId());
   }
 
+  function delete($id) {
+    $sql = "DELETE FROM ".$this->table." where id = :id";
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute(array('id' => $id));
+  }
+
   function where($cond, $vals, $opts = []) {
     $f = implode(', ', array_merge(array('id'), $this->fields));
     $sql = "SELECT ". $f ." FROM ".$this->table." where $cond";
