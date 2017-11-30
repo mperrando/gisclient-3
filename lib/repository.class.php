@@ -22,7 +22,7 @@ class Repository {
     }
     $sql = "UPDATE ". $this->table." SET ". implode(', ', $f) ." where id = :id";
     $stmt = $this->db->prepare($sql);
-    $stmt->execute($obj);
+    $stmt->execute($this->fix_values($obj));
     return $this->find($obj['id']);
   }
 
@@ -40,7 +40,7 @@ class Repository {
     $sql = "INSERT INTO ". $this->table." (". $f .") VALUES (". $v .")";
     $stmt = $this->db->prepare($sql);
     //die(serialize($obj));
-    $stmt->execute($obj);
+    $stmt->execute($this->fix_values($obj));
     return $this->find($this->db->lastInsertId());
   }
 
@@ -60,5 +60,16 @@ class Repository {
         $obj[$field] = $values[$field];
     }
     return $obj;
+  }
+
+  function fix_values($obj) {
+    $result = array();
+    foreach ( $obj as $k => $v ) {
+      if ( is_bool($v) ) {
+        $v = $v ? 'true' : 'false';
+      }
+      $result[$k] = $v;
+    }
+    return $result;
   }
 }
