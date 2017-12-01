@@ -6,12 +6,16 @@ class Repository {
     $this->table = $table;
   }
 
-  function find($id) {
+  function find($id, $opts = []) {
     $f = implode(', ', array_merge(array('id'), $this->fields));
     $sql = "SELECT ". $f ." FROM ".$this->table." where id = :id";
     $stmt = $this->db->prepare($sql);
     $stmt->execute(array('id' => $id));
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+    $obj = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ( isset($opts['afterload']) ) {
+      $opts['afterload']($obj);
+    }
+    return $obj;
   }
 
   function update($obj) {
@@ -57,7 +61,14 @@ class Repository {
       $sql .= " ORDER BY ". $opts['order'];
     $stmt = $this->db->prepare($sql);
     $stmt->execute($vals);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $objs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $afterLoad = $opts['afterload'];
+    if ( $afterLoad ) {
+      foreach ($objs as &$obj) {
+        $afterLoad($obj);
+      }
+    }
+    return $objs;
   }
 
   function updateAttributes($obj, $values) {

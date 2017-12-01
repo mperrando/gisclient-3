@@ -14,10 +14,11 @@ class WorkspaceRepository extends Repository {
     );
   }
 
-  function ofUser($user) {
+  function ofUser($user, $opts = []) {
+    $opts["order"] = 'name';
     return $this->where(
       "(user_id = :user_id OR is_public = TRUE) AND deleted_at IS NULL",
-      array("user_id" => $user), array("order" => 'name'));
+      array("user_id" => $user), $opts);
   }
 }
 
@@ -63,6 +64,16 @@ class Charts {
     $this->db = GCApp::getDB();
     $this->workspaces_repo = new WorkspaceRepository(GCApp::getDB(), DB_SCHEMA.".charts_workspaces");
     $this->reader = new SerieReader($this->db);
+    $this->presentWorkspace = function(&$workspace) { $this->presentWorkspace($workspace); };
+  }
+
+  function presentWorkspace(&$workspace) {
+      $workspace["public"] = $workspace['is_public'];
+      unset($workspace["is_public"]);
+      unset($workspace["deleted_at"]);
+      $workspace["owned"] = $workspace['user_id'] == $this->user->getUsername();
+      unset($workspace["user_id"]);
+      $workspace['data'] = json_decode($workspace['data']);
   }
 
   function getSeries($ids, $from, $to) {
@@ -80,7 +91,7 @@ class Charts {
         $serie["y"] = array();
         $points = $this->reader->read($id, $from, $to);
         foreach ( $points as $point ) {
-          $serie["x"][] = strtotime($point["t"])*1000;
+          $serie["x"][] = strtotime($point["t"]) * 1000;
           $serie["y"][] = $point["v"];
         }
         $result[] = $serie;
@@ -106,23 +117,19 @@ class Charts {
   }
 
   function workspacesList() {
-    $workspaces = $this->workspaces_repo->ofUser($this->user->getUsername());
-
-    $result = array();
-      foreach ( $workspaces as $workspace ) {
-        $result []= array("name" => $workspace['name'],
-          "id" => $workspace['id'],
-          "public" => $workspace['is_public']
-        );
-      }
-    return $result;
+    $workspaces = $this->workspaces_repo->ofUser($this->user->getUsername(),
+      array('afterload' => function(&$workspace) {
+        $this->presentWorkspace($workspace);
+        unset($workspace['data']);
+      }));
+    return $workspaces;
   }
 
   function workspace($id) {
-    $workspace = $this->workspaces_repo->find($id);
-    if ( !$workspace['is_public'] && !$workspace['user_id'] == $this->user->getUsername() )
+    $workspace = $this->workspaces_repo->find($id,
+      array('afterload' => $this->presentWorkspace));
+    if ( !$workspace['public'] && !$workspace['owned'] )
       throw new Exception("You are not authorized");
-    $workspace['data'] = json_decode($workspace['data']);
     return $workspace;
   }
 
@@ -135,9 +142,14 @@ class Charts {
     if ( $workspace['user_id'] != $this->user->getUsername() )
       throw new Exception("You are not authorized");
 
+    $params['data'] = json_encode(coalesce($params['data']));
+    $params["is_public"] = $params['public'];
+
     $workspace = $this->workspaces_repo->updateAttributes($workspace, $params);
-    $workspace['data'] = json_encode(coalesce($workspace['data']));
-    return $this->workspaces_repo->update($workspace);
+
+    $workspace = $this->workspaces_repo->update($workspace);
+    $this->presentWorkspace($workspace);
+    return $workspace;
   }
 
   function create_workspace($params) {
@@ -146,24 +158,25 @@ class Charts {
 
     $workspace = $this->workspaces_repo->updateAttributes(array(), $params);
     $workspace["user_id"] = $this->user->getUsername();
-    $workspace["data"] = json_encode(coalesce($workspace['data']));
 
-    return $this->workspaces_repo->insert($workspace);
+    $workspace = $this->workspaces_repo->insert($workspace);
+    $this->presentWorkspace($workspace);
+    return $workspace;
+
   }
 
   function delete_workspace($id) {
     if ( !$this->user->isAuthenticated() )
       throw new Exception("You are not authorized");
 
-    $workspace = $this->workspaces_repo->find($id);
+    $workspace = $this->workspaces_repo->find($id,
+      array('afterload' => $this->presentWorkspace));
 
-    if ( $workspace['user_id'] != $this->user->getUsername() )
-      throw new Exception("You are not authorized ".$this->user->getUsername(). " " .$workspace['user_id']);
+    if ( !$workspace['owned'] )
+      throw new Exception("You are not authorized");
 
     $workspace = $this->workspaces_repo->updateAttributes($workspace, array('deleted_at' => date('c')));
     $this->workspaces_repo->update($workspace);
-
-    //$this->workspaces_repo->delete($id);
   }
 
   function searchMeasure($text) {
@@ -181,7 +194,7 @@ class Charts {
   }
 
   function getSeriesForFeature($featureId) {
-    $catalog = "genova_acqua";
+    $catalog = "genova_acqua"; //TODO
     $table = "rainvaso_v";
     $id = 4;
 
